@@ -146,3 +146,17 @@ export const CATEGORIES = [
 ] as const;
 
 export const DIFFICULTIES = ['easy', 'medium', 'hard'] as const;
+
+export interface ChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+export interface ChatResponse {
+  text: string;
+  latency_ms: number;
+  input_tokens: number;
+  output_tokens: number;
+  provider: string;
+  model: string;
+}

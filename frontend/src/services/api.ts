@@ -12,6 +12,8 @@ import type {
   DashboardOverview,
   ModelComparison,
   CategoryBreakdown,
+  ChatMessage,
+  ChatResponse,
 } from '../types';
 
 const api = axios.create({
@@ -90,4 +92,15 @@ export const statsApi = {
   overview: () => api.get<DashboardOverview>('/stats/overview').then(r => r.data),
   modelComparison: () => api.get<ModelComparison[]>('/stats/model-comparison').then(r => r.data),
   categoryBreakdown: () => api.get<CategoryBreakdown[]>('/stats/category-breakdown').then(r => r.data),
+};
+
+/* ---------- Chat ---------- */
+export const chatApi = {
+  sendMessage: (modelId: string, messages: ChatMessage[], temperature?: number, maxTokens?: number) =>
+    api.post<ChatResponse>('/chat', {
+      model_id: modelId,
+      messages,
+      temperature,
+      max_tokens: maxTokens,
+    }).then(r => r.data),
 };

@@ -7,6 +7,7 @@ import RunEvaluation from './pages/RunEvaluation';
 import Results from './pages/Results';
 import Compare from './pages/Compare';
 import Reports from './pages/Reports';
+import Chat from './pages/Chat';
 import './index.css';
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/results" element={<Results />} />
           <Route path="/compare" element={<Compare />} />
           <Route path="/reports" element={<Reports />} />
+          <Route path="/chat" element={<Chat />} />
         </Routes>
       </main>
     </BrowserRouter>

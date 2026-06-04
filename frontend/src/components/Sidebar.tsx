@@ -7,11 +7,13 @@ import {
   BarChart3,
   GitCompare,
   Download,
+  MessageSquare,
 } from 'lucide-react';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/models', icon: Bot, label: 'Models' },
+  { to: '/chat', icon: MessageSquare, label: 'Chat Workspace' },
   { to: '/test-cases', icon: FileText, label: 'Test Cases' },
   { to: '/run', icon: Play, label: 'Run Evaluation' },
   { to: '/results', icon: BarChart3, label: 'Results' },
