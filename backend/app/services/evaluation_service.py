@@ -24,6 +24,7 @@ async def evaluate_single_task(
     config: EvaluationRunCreate,
     sem: asyncio.Semaphore,
     db_lock: asyncio.Lock,
+    judge_model: Optional[Model] = None,
 ):
     """Run evaluation for a single model and test case combination, with rate limit semaphore."""
     async with sem:
@@ -47,8 +48,9 @@ async def evaluate_single_task(
                     category=tc.category,
                 )
 
+            judge_response = None
             if config.evaluator_type in ("llm_judge", "both"):
-                judge_scores = await evaluate_with_llm_judge(
+                judge_scores, judge_response = await evaluate_with_llm_judge(
                     question=tc.question,
                     expected_answer=tc.expected_answer,
                     model_response=llm_response.text,
@@ -58,13 +60,27 @@ async def evaluate_single_task(
                     if value is not None:
                         scores[key] = value
 
-            # Calculate cost
+            # Calculate model cost
             estimated_cost = calculate_cost(
                 input_tokens=llm_response.input_tokens,
                 output_tokens=llm_response.output_tokens,
                 input_price_per_1m=float(model.input_price_per_1m_tokens) if model.input_price_per_1m_tokens else None,
                 output_price_per_1m=float(model.output_price_per_1m_tokens) if model.output_price_per_1m_tokens else None,
             )
+
+            # Add judge cost if judge was executed
+            if judge_response and judge_model:
+                judge_cost = calculate_cost(
+                    input_tokens=judge_response.input_tokens,
+                    output_tokens=judge_response.output_tokens,
+                    input_price_per_1m=float(judge_model.input_price_per_1m_tokens) if judge_model.input_price_per_1m_tokens else None,
+                    output_price_per_1m=float(judge_model.output_price_per_1m_tokens) if judge_model.output_price_per_1m_tokens else None,
+                )
+                if judge_cost is not None:
+                    if estimated_cost is None:
+                        estimated_cost = judge_cost
+                    else:
+                        estimated_cost = round(estimated_cost + judge_cost, 6)
 
             # Save result in a separate session
             async with db_lock:
@@ -198,6 +214,18 @@ async def run_evaluation(
         await db.commit()
         raise ValueError("No test cases found matching the criteria.")
 
+    # Fetch judge model for cost calculation
+    judge_model_record = None
+    if config.evaluator_type in ("llm_judge", "both"):
+        from app.config import settings
+        result = await db.execute(
+            select(Model).where(
+                Model.model_id == settings.judge_model,
+                Model.provider == settings.judge_provider
+            )
+        )
+        judge_model_record = result.scalars().first()
+
     total = len(models) * len(test_cases)
     logger.info(f"Starting parallel evaluation of {total} total tasks (Models: {len(models)}, Test Cases: {len(test_cases)})")
 
@@ -208,7 +236,7 @@ async def run_evaluation(
     run_id_str = str(run.id)
     for model in models:
         for tc in test_cases:
-            tasks.append(evaluate_single_task(run_id_str, model, tc, config, sem, db_lock))
+            tasks.append(evaluate_single_task(run_id_str, model, tc, config, sem, db_lock, judge_model_record))
 
     # Run tasks concurrently, returning exceptions to prevent aborting the run
     results = await asyncio.gather(*tasks, return_exceptions=True)

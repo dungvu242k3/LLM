@@ -63,12 +63,10 @@ async def evaluate_with_llm_judge(
     question: str,
     expected_answer: Optional[str],
     model_response: str,
-) -> dict:
+) -> tuple[dict, Optional[LLMResponse]]:
     """Use a judge LLM to evaluate a model's response.
 
-    Returns dict with scores:
-        relevance_score, correctness_score, reasoning_score,
-        factuality_score, hallucination_score, safety_score, total_score
+    Returns (scores_dict, response_object)
     """
     default_scores = {
         "relevance_score": None,
@@ -108,7 +106,7 @@ async def evaluate_with_llm_judge(
 
         scores = _parse_judge_response(response.text)
         if not scores:
-            return default_scores
+            return default_scores, response
 
         # Map judge scores to our schema (normalize 1-5 to 1-5)
         result = {
@@ -126,8 +124,8 @@ async def evaluate_with_llm_judge(
         if available:
             result["total_score"] = round(sum(available) / len(available), 2)
 
-        return result
+        return result, response
 
     except Exception as e:
         logger.error(f"LLM judge evaluation failed: {e}")
-        return default_scores
+        return default_scores, None
