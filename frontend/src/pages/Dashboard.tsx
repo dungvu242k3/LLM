@@ -6,6 +6,7 @@ import {
   DollarSign,
   Zap,
   Clock,
+  Trash2,
 } from 'lucide-react';
 import {
   RadarChart,
@@ -22,7 +23,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { statsApi } from '../services/api';
+import { statsApi, evaluationsApi } from '../services/api';
 import type { DashboardOverview, ModelComparison } from '../types';
 
 export default function Dashboard() {
@@ -30,7 +31,8 @@ export default function Dashboard() {
   const [comparison, setComparison] = useState<ModelComparison[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchData = (showLoading = true) => {
+    if (showLoading) setLoading(true);
     Promise.all([
       statsApi.overview().catch(() => null),
       statsApi.modelComparison().catch(() => []),
@@ -39,7 +41,23 @@ export default function Dashboard() {
       setComparison(comp);
       setLoading(false);
     });
+  };
+
+  useEffect(() => {
+    fetchData(true);
   }, []);
+
+  const handleDeleteRun = async (id: string) => {
+    if (confirm('Are you sure you want to delete this evaluation run and all its results?')) {
+      try {
+        await evaluationsApi.delete(id);
+        fetchData(false);
+      } catch (err) {
+        console.error('Error deleting evaluation run:', err);
+        alert('Failed to delete evaluation run.');
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -242,6 +260,7 @@ export default function Dashboard() {
                   <th>Name</th>
                   <th>Status</th>
                   <th>Created</th>
+                  <th style={{ textAlign: 'right', width: '80px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -264,6 +283,16 @@ export default function Dashboard() {
                       </span>
                     </td>
                     <td>{run.created_at ? new Date(run.created_at).toLocaleString() : '—'}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={() => handleDeleteRun(run.id)}
+                        title="Delete evaluation run"
+                        style={{ padding: '0.25rem 0.5rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -60,7 +60,7 @@ async def start_evaluation(
         },
     )
     db.add(run)
-    await db.flush()
+    await db.commit()
     await db.refresh(run)
 
     # Queue evaluation in background with run ID
@@ -132,6 +132,21 @@ async def get_evaluation(run_id: str, db: AsyncSession = Depends(get_db)):
         created_at=run.created_at,
         total_results=total,
     )
+
+
+@router.delete("/{run_id}", status_code=204)
+async def delete_evaluation(run_id: str, db: AsyncSession = Depends(get_db)):
+    """Delete an evaluation run and all its results."""
+    result = await db.execute(
+        select(EvaluationRun).where(EvaluationRun.id == run_id)
+    )
+    run = result.scalar_one_or_none()
+    if not run:
+        raise HTTPException(status_code=404, detail="Evaluation run not found")
+
+    await db.delete(run)
+    await db.commit()
+    return
 
 
 @router.get("/{run_id}/results", response_model=list[EvaluationResultResponse])

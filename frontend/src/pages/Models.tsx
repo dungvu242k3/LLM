@@ -10,7 +10,7 @@ export default function Models() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<LLMModelCreate>({
-    provider: 'nine_router',
+    provider: 'openai',
     model_id: '',
     display_name: '',
     context_length: null,
@@ -27,7 +27,7 @@ export default function Models() {
 
   const resetForm = () => {
     setForm({
-      provider: 'nine_router', model_id: '', display_name: '',
+      provider: 'openai', model_id: '', display_name: '',
       context_length: null, input_price_per_1m_tokens: null,
       output_price_per_1m_tokens: null, is_active: true,
     });

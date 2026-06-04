@@ -129,11 +129,8 @@ export interface CategoryBreakdown {
 }
 
 export const PROVIDERS = [
-  { value: 'nine_router', label: '9Router' },
-  { value: 'openrouter', label: 'OpenRouter' },
   { value: 'openai', label: 'OpenAI' },
   { value: 'gemini', label: 'Gemini' },
-  { value: 'claude', label: 'Claude' },
 ] as const;
 
 export const CATEGORIES = [

@@ -11,26 +11,14 @@ class Settings(BaseSettings):
     app_env: str = "development"
     database_url: str = "sqlite+aiosqlite:///./llm_eval.db"
 
-    # 9Router
-    nine_router_api_key: Optional[str] = None
-    nine_router_base_url: str = "http://localhost:20128/v1"
-
-    # OpenRouter
-    openrouter_api_key: Optional[str] = None
-    openrouter_base_url: str = "https://openrouter.ai/api/v1"
-
     # OpenAI
     openai_api_key: Optional[str] = None
 
     # Gemini
     gemini_api_key: Optional[str] = None
 
-    # Anthropic Claude
-    claude_api_key: Optional[str] = None
-    anthropic_api_key: Optional[str] = None
-
     # Judge
-    judge_provider: str = "nine_router"
+    judge_provider: str = "openai"
     judge_model: str = ""
 
     # CORS

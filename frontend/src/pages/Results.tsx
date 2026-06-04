@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import { Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { evaluationsApi } from '../services/api';
 import type { EvaluationRun, EvaluationResult } from '../types';
@@ -97,8 +97,8 @@ export default function Results() {
             </thead>
             <tbody>
               {results.map(r => (
-                <>
-                  <tr key={r.id}>
+                <Fragment key={r.id}>
+                  <tr>
                     <td style={{ fontWeight: 500, color: '#e2e8f0' }}>{r.model_display_name ?? '—'}</td>
                     <td><span className="badge badge-info">{r.test_case_category ?? '—'}</span></td>
                     <td><ScoreCell score={r.correctness_score} /></td>
@@ -119,9 +119,9 @@ export default function Results() {
                     </td>
                   </tr>
                   {expandedId === r.id && (
-                    <tr key={`${r.id}-detail`}>
+                    <tr>
                       <td colSpan={11} style={{ padding: '1rem 1.5rem', background: 'var(--color-surface-800)' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '1.5rem' }}>
                           <div>
                             <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.5rem' }}>
                               Question
@@ -145,7 +145,7 @@ export default function Results() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>

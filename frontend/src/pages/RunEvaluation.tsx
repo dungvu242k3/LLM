@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Play, CheckCircle, AlertCircle } from 'lucide-react';
 import { modelsApi, testCasesApi, evaluationsApi } from '../services/api';
-import type { LLMModel, TestCase, EvaluationRun } from '../types';
+import type { LLMModel, TestCase, EvaluationRun, EvaluationResult } from '../types';
 import { CATEGORIES } from '../types';
 
 export default function RunEvaluation() {
@@ -15,6 +15,7 @@ export default function RunEvaluation() {
   const [runName, setRunName] = useState('');
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<EvaluationRun | null>(null);
+  const [liveResults, setLiveResults] = useState<EvaluationResult[]>([]);
   const [error, setError] = useState('');
   const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
@@ -41,6 +42,7 @@ export default function RunEvaluation() {
     setError('');
     setRunning(true);
     setResult(null);
+    setLiveResults([]);
 
     try {
       const run = await evaluationsApi.run({
@@ -52,13 +54,21 @@ export default function RunEvaluation() {
         evaluator_type: evaluatorType,
       });
 
-      // Poll for completion
+      // Poll for completion and live results
       pollRef.current = setInterval(async () => {
-        const updated = await evaluationsApi.get(run.id);
-        if (updated.status === 'completed' || updated.status === 'failed') {
-          clearInterval(pollRef.current);
+        try {
+          const updated = await evaluationsApi.get(run.id);
           setResult(updated);
-          setRunning(false);
+
+          const results = await evaluationsApi.getResults(run.id);
+          setLiveResults(results);
+
+          if (updated.status === 'completed' || updated.status === 'failed') {
+            clearInterval(pollRef.current);
+            setRunning(false);
+          }
+        } catch (pollErr) {
+          console.error('Error polling evaluation run:', pollErr);
         }
       }, 2000);
     } catch (e: any) {
@@ -73,6 +83,12 @@ export default function RunEvaluation() {
     };
   }, []);
 
+  const totalTasks = selectedModels.length * filteredTestCases.length;
+  const completedTasks = result ? (result.total_results ?? 0) : 0;
+  const progressPercent = result?.status === 'completed'
+    ? 100
+    : (totalTasks > 0 ? Math.min(100, Math.round((completedTasks / totalTasks) * 100)) : 0);
+
   return (
     <div>
       <div className="page-header">
@@ -80,7 +96,7 @@ export default function RunEvaluation() {
         <p>Configure and execute a benchmark run across selected models</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '1.5rem' }}>
         {/* Left: Configuration */}
         <div className="card">
           <h3 style={{ margin: '0 0 1.25rem', fontSize: '1rem', fontWeight: 600, color: '#f1f5f9' }}>
@@ -173,26 +189,77 @@ export default function RunEvaluation() {
           </button>
 
           {running && (
-            <div style={{ marginTop: '1rem' }}>
+            <div style={{ marginTop: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem', marginBottom: '0.375rem' }}>
+                <span style={{ color: '#94a3b8' }}>Progress</span>
+                <span style={{ color: '#f1f5f9', fontWeight: 600 }}>{progressPercent}%</span>
+              </div>
               <div className="progress-bar">
                 <div
                   className="progress-fill"
-                  style={{ width: '60%', animation: 'shimmer 2s linear infinite', backgroundSize: '200% 100%', backgroundImage: 'linear-gradient(90deg, #6366f1, #06b6d4, #6366f1)' }}
+                  style={{ width: `${progressPercent}%`, transition: 'width 0.3s ease-out', animation: 'shimmer 2s linear infinite', backgroundSize: '200% 100%', backgroundImage: 'linear-gradient(90deg, #6366f1, #06b6d4, #6366f1)' }}
                 />
               </div>
               <p style={{ fontSize: '0.8125rem', color: '#94a3b8', marginTop: '0.5rem' }}>
-                Processing {selectedModels.length} model(s) × {filteredTestCases.length} test case(s)...
+                Processing {completedTasks} / {totalTasks} tasks...
               </p>
+
+              {liveResults.length > 0 && (
+                <div style={{ marginTop: '1.25rem', borderTop: '1px solid var(--color-surface-600)', paddingTop: '1rem' }}>
+                  <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.8125rem', fontWeight: 600, color: '#f1f5f9' }}>
+                    Live Execution Feed
+                  </h4>
+                  <div style={{
+                    maxHeight: '200px',
+                    overflowY: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.375rem',
+                    paddingRight: '0.25rem',
+                  }}>
+                    {[...liveResults].reverse().map((res) => {
+                      const isError = res.response?.startsWith('ERROR:');
+                      return (
+                        <div
+                          key={res.id}
+                          style={{
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: 6,
+                            background: 'var(--color-surface-800)',
+                            borderLeft: `3px solid ${isError ? '#ef4444' : '#10b981'}`,
+                            fontSize: '0.75rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.25rem',
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#e2e8f0' }}>
+                            <span style={{ fontWeight: 600 }}>{res.model_display_name || res.model_id}</span>
+                            <span style={{ color: isError ? '#f87171' : '#34d399', fontWeight: 600 }}>
+                              {isError ? 'Failed' : `Score: ${res.total_score?.toFixed(1) ?? 'N/A'}/5.0`}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b' }}>
+                            <span>Category: {res.test_case_category || 'general'}</span>
+                            <span>{res.latency_ms ? `${(res.latency_ms / 1000).toFixed(2)}s` : ''}</span>
+                          </div>
+                          <div style={{ color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            Q: {res.test_case_question || res.prompt}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {result && (
-            <div style={{ marginTop: '1rem', padding: '1rem', background: result.status === 'completed' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', borderRadius: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: result.status === 'completed' ? '#34d399' : '#f87171' }}>
+          {result && result.status === 'completed' && (
+            <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(16,185,129,0.1)', borderRadius: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#34d399' }}>
                 <CheckCircle size={18} />
-                <strong>
-                  {result.status === 'completed' ? 'Evaluation completed!' : 'Evaluation failed'}
-                </strong>
+                <strong>Evaluation completed!</strong>
               </div>
               <p style={{ fontSize: '0.8125rem', color: '#94a3b8', margin: '0.5rem 0 0' }}>
                 {result.total_results} results saved. View them in the Results page.
@@ -212,7 +279,7 @@ export default function RunEvaluation() {
               No active models found. Add models first.
             </p>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '450px', overflowY: 'auto', paddingRight: '0.25rem' }}>
               {models.map(m => (
                 <label
                   key={m.id}
@@ -246,6 +313,7 @@ export default function RunEvaluation() {
               ))}
             </div>
           )}
+
 
           <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--color-surface-700)', borderRadius: 8 }}>
             <div style={{ fontSize: '0.8125rem', color: '#94a3b8' }}>

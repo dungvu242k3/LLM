@@ -46,6 +46,7 @@ export const evaluationsApi = {
   get: (id: string) => api.get<EvaluationRun>(`/evaluations/${id}`).then(r => r.data),
   getResults: (id: string, params?: { model_id?: string; category?: string }) =>
     api.get<EvaluationResult[]>(`/evaluations/${id}/results`, { params }).then(r => r.data),
+  delete: (id: string) => api.delete(`/evaluations/${id}`),
 };
 
 /* ---------- Reports ---------- */

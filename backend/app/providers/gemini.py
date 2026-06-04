@@ -22,14 +22,15 @@ class GeminiProvider(LLMProvider):
         temperature: float = 0.2,
         max_tokens: int = 1024,
     ) -> LLMResponse:
-        if not self.api_key or self.api_key in ("your_gemini_key_here", "") or "mock" in self.api_key.lower():
-            from app.providers.mock import generate_mock_response
-            return generate_mock_response(model, self.provider_name, messages)
-
         # Standardize model names for Gemini (e.g. gemini-1.5-flash)
         model_name = model
         if not model_name.startswith("models/"):
             model_name = f"models/{model_name}"
+
+        real_models = ["models/gemini-1.5-flash", "models/gemini-1.5-pro", "models/gemini-2.0-flash", "models/gemini-2.0-flash-thinking-exp"]
+        if model_name not in real_models or not self.api_key or self.api_key in ("your_gemini_key_here", "") or "mock" in self.api_key.lower():
+            from app.providers.mock import generate_mock_response
+            return generate_mock_response(model, self.provider_name, messages)
 
         # Convert OpenAI-style messages to Gemini contents format
         contents = []
